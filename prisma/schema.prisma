@@ -1,0 +1,287 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  SELLER
+  BUYER
+  DRIVER
+}
+
+enum OrderStatus {
+  SEDANG_DIKEMAS
+  MENUNGGU_PENGIRIM
+  SEDANG_DIKIRIM
+  PESANAN_SELESAI
+  DIKEMBALIKAN
+}
+
+enum DeliveryMethod {
+  INSTANT
+  NEXT_DAY
+  REGULAR
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  name      String
+  phone     String?
+  roles     Role[]   @default([BUYER])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store         Store?
+  buyerProfile  BuyerProfile?
+  driverProfile DriverProfile?
+  reviews       Review[]
+  sessions      Session[]
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  userId     String
+  activeRole Role
+  token      String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Store {
+  id          String   @id @default(cuid())
+  sellerId    String   @unique
+  name        String   @unique
+  description String?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  seller   User      @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  products Product[]
+  orders   Order[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  storeId     String
+  name        String
+  description String?
+  price       Float
+  stock       Int      @default(0)
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  store      Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+}
+
+model BuyerProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  balance   Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addresses     Address[]
+  cart          Cart?
+  orders        Order[]
+  walletHistory WalletTransaction[]
+}
+
+model Address {
+  id        String   @id @default(cuid())
+  buyerId   String
+  label     String
+  street    String
+  city      String
+  province  String
+  zipCode   String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  buyer  BuyerProfile @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  orders Order[]
+}
+
+model WalletTransaction {
+  id          String   @id @default(cuid())
+  buyerId     String
+  amount      Float
+  type        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  buyer BuyerProfile @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+}
+
+model Cart {
+  id        String   @id @default(cuid())
+  buyerId   String   @unique
+  storeId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  buyer BuyerProfile @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  items CartItem[]
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  productId String
+  quantity  Int
+  createdAt DateTime @default(now())
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Order {
+  id             String         @id @default(cuid())
+  buyerId        String
+  storeId        String
+  addressId      String?
+  status         OrderStatus    @default(SEDANG_DIKEMAS)
+  deliveryMethod DeliveryMethod
+  subtotal       Float
+  discountAmount Float          @default(0)
+  deliveryFee    Float
+  tax            Float
+  total          Float
+  voucherId      String?
+  promoId        String?
+  discountCode   String?
+  isOverdue      Boolean        @default(false)
+  overdueAt      DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  buyer         BuyerProfile         @relation(fields: [buyerId], references: [id])
+  store         Store                @relation(fields: [storeId], references: [id])
+  address       Address?             @relation(fields: [addressId], references: [id])
+  voucher       Voucher?             @relation(fields: [voucherId], references: [id])
+  promo         Promo?               @relation(fields: [promoId], references: [id])
+  items         OrderItem[]
+  statusHistory OrderStatusHistory[]
+  deliveryJob   DeliveryJob?
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  productId String
+  name      String
+  price     Float
+  quantity  Int
+  createdAt DateTime @default(now())
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model OrderStatusHistory {
+  id        String      @id @default(cuid())
+  orderId   String
+  status    OrderStatus
+  note      String?
+  createdAt DateTime    @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Voucher {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  description   String?
+  discountType  String
+  discountValue Float
+  minPurchase   Float    @default(0)
+  maxDiscount   Float?
+  expiresAt     DateTime
+  usageLimit    Int
+  usageCount    Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  orders Order[]
+}
+
+model Promo {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  description   String?
+  discountType  String
+  discountValue Float
+  minPurchase   Float    @default(0)
+  maxDiscount   Float?
+  expiresAt     DateTime
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  orders Order[]
+}
+
+model DriverProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  balance   Float    @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveryJobs DeliveryJob[]
+  earnings     DriverEarning[]
+}
+
+model DeliveryJob {
+  id          String    @id @default(cuid())
+  orderId     String    @unique
+  driverId    String?
+  status      String    @default("AVAILABLE")
+  fee         Float
+  takenAt     DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  order   Order          @relation(fields: [orderId], references: [id])
+  driver  DriverProfile? @relation(fields: [driverId], references: [id])
+  earning DriverEarning?
+}
+
+model DriverEarning {
+  id        String   @id @default(cuid())
+  driverId  String
+  jobId     String   @unique
+  amount    Float
+  createdAt DateTime @default(now())
+
+  driver DriverProfile @relation(fields: [driverId], references: [id])
+  job    DeliveryJob   @relation(fields: [jobId], references: [id])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String?
+  name      String
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
