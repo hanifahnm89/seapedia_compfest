@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  const results = []
+  const results: any[] = []
   for (const order of overdueOrders) {
     await prisma.$transaction(async (tx) => {
       // Mark as overdue and returned
