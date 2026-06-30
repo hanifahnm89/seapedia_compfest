@@ -61,6 +61,7 @@ export default function ProductsPage() {
         </form>
       </div>
 
+      
       {loading ? (
         <div className="flex justify-center py-20"><Spinner className="h-8 w-8" /></div>
       ) : products.length === 0 ? (

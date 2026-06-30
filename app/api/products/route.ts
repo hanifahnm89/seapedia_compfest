@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
     prisma.product.count({ where }),
   ])
 
+  
   return ok({ products, total, page, limit, pages: Math.ceil(total / limit) })
 }
 
